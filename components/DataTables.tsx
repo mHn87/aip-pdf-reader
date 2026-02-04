@@ -62,10 +62,23 @@ function DataTable({ endpoint, title, description, icon, enabled, fileId }: Data
       setError(null)
 
       try {
-        // Get fileId from prop or localStorage
-        const currentFileId = fileId || (typeof window !== 'undefined' ? localStorage.getItem('aip_fileId') : null)
-        const url = currentFileId ? `${endpoint}?fileId=${currentFileId}` : endpoint
-        const response = await fetch(url)
+        // Get file data from localStorage
+        const fileData = typeof window !== 'undefined' ? localStorage.getItem('aip_fileData') : null
+        
+        if (!fileData) {
+          setError('No PDF uploaded. Please upload a PDF first.')
+          setLoading(false)
+          return
+        }
+        
+        // Send file data to parse endpoint
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fileData })
+        })
         const result = await response.json()
 
         if (result.success) {

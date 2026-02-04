@@ -8,11 +8,6 @@ export function Navbar() {
           <FileText className="h-6 w-6" />
           <span className="font-bold text-lg">AIP PDF Parser</span>
         </div>
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <span className="text-sm text-muted-foreground">
-            Aeronautical Information Publication Parser
-          </span>
-        </div>
       </div>
     </nav>
   )

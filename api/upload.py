@@ -69,31 +69,10 @@ class handler(BaseHTTPRequestHandler):
             # Generate a unique file ID
             file_id = unique_id
             
-            # Store file path mapping in a simple JSON file in /tmp
-            # Note: This is a workaround. For production, use Vercel KV or a database
-            mapping_file = '/tmp/aip_file_mappings.json'
-            mappings = {}
-            if os.path.exists(mapping_file):
-                try:
-                    with open(mapping_file, 'r') as f:
-                        mappings = json.load(f)
-                except:
-                    mappings = {}
-            
-            mappings[file_id] = {
-                'path': temp_path,
-                'filename': filename,
-                'timestamp': os.path.getmtime(temp_path) if os.path.exists(temp_path) else 0
-            }
-            
-            # Clean up old mappings (older than 1 hour)
-            import time
-            current_time = time.time()
-            mappings = {k: v for k, v in mappings.items() 
-                       if current_time - v.get('timestamp', 0) < 3600}
-            
-            with open(mapping_file, 'w') as f:
-                json.dump(mappings, f)
+            # Store file data as base64 in response (simple solution for Vercel)
+            # The file will be stored in browser and sent to parse endpoints
+            import base64
+            file_base64 = base64.b64encode(file_data).decode('utf-8')
             
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -103,6 +82,7 @@ class handler(BaseHTTPRequestHandler):
                 "success": True,
                 "filename": filename,
                 "fileId": file_id,
+                "fileData": file_base64,  # Base64 encoded file
                 "message": "PDF uploaded successfully",
                 "size": len(file_data)
             }).encode())

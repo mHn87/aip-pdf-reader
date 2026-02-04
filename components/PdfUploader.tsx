@@ -58,6 +58,11 @@ export function PdfUploader({ onUploadSuccess, onClear, uploadedFile }: PdfUploa
       }
 
       const data = await response.json()
+      // Store file data in localStorage for parse endpoints
+      if (typeof window !== 'undefined' && data.fileData) {
+        localStorage.setItem('aip_fileData', data.fileData)
+        localStorage.setItem('aip_fileId', data.fileId)
+      }
       onUploadSuccess(data.filename, data.fileId)
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -90,6 +95,11 @@ export function PdfUploader({ onUploadSuccess, onClear, uploadedFile }: PdfUploa
   const handleClear = async () => {
     try {
       await fetch('/api/clear', { method: 'DELETE' })
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('aip_fileData')
+        localStorage.removeItem('aip_fileId')
+      }
       onClear()
     } catch {
       console.error('Failed to clear upload')
