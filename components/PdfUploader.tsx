@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface PdfUploaderProps {
-  onUploadSuccess: (filename: string) => void
+  onUploadSuccess: (filename: string, fileId: string) => void
   onClear: () => void
   uploadedFile: string | null
 }
@@ -58,7 +58,7 @@ export function PdfUploader({ onUploadSuccess, onClear, uploadedFile }: PdfUploa
       }
 
       const data = await response.json()
-      onUploadSuccess(data.filename)
+      onUploadSuccess(data.filename, data.fileId)
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setError('Upload timeout. The file might be too large. Please try again.')

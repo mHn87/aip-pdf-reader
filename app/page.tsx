@@ -7,13 +7,23 @@ import { DataTables } from "@/components/DataTables"
 
 export default function Home() {
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [fileId, setFileId] = useState<string | null>(null)
 
-  const handleUploadSuccess = (filename: string) => {
+  const handleUploadSuccess = (filename: string, id: string) => {
     setUploadedFile(filename)
+    setFileId(id)
+    // Store fileId in localStorage as backup
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aip_fileId', id)
+    }
   }
 
   const handleClear = () => {
     setUploadedFile(null)
+    setFileId(null)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('aip_fileId')
+    }
   }
 
   return (
@@ -47,7 +57,7 @@ export default function Home() {
               : "Data will appear here after uploading a PDF"
             }
           </p>
-          <DataTables enabled={!!uploadedFile} />
+          <DataTables enabled={!!uploadedFile} fileId={fileId} />
         </div>
       </main>
 

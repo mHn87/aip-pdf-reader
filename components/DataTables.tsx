@@ -10,6 +10,7 @@ interface DataTableProps {
   description: string
   icon: React.ReactNode
   enabled: boolean
+  fileId?: string | null
 }
 
 function TableSkeleton() {
@@ -44,7 +45,7 @@ function ExpandableRow({ title, count, children }: { title: string; count?: numb
   )
 }
 
-function DataTable({ endpoint, title, description, icon, enabled }: DataTableProps) {
+function DataTable({ endpoint, title, description, icon, enabled, fileId }: DataTableProps) {
   const [data, setData] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +62,10 @@ function DataTable({ endpoint, title, description, icon, enabled }: DataTablePro
       setError(null)
 
       try {
-        const response = await fetch(endpoint)
+        // Get fileId from prop or localStorage
+        const currentFileId = fileId || (typeof window !== 'undefined' ? localStorage.getItem('aip_fileId') : null)
+        const url = currentFileId ? `${endpoint}?fileId=${currentFileId}` : endpoint
+        const response = await fetch(url)
         const result = await response.json()
 
         if (result.success) {
@@ -77,7 +81,7 @@ function DataTable({ endpoint, title, description, icon, enabled }: DataTablePro
     }
 
     fetchData()
-  }, [endpoint, enabled])
+  }, [endpoint, enabled, fileId])
 
   const renderContent = () => {
     if (!enabled) {
@@ -343,7 +347,7 @@ function AD213Table({ data }: { data: Array<{ "RWY Designator"?: string; RWY_Des
   )
 }
 
-export function DataTables({ enabled }: { enabled: boolean }) {
+export function DataTables({ enabled, fileId }: { enabled: boolean; fileId?: string | null }) {
   const tables = [
     {
       endpoint: "/api/parse/ad2_1",
@@ -387,6 +391,7 @@ export function DataTables({ enabled }: { enabled: boolean }) {
           description={table.description}
           icon={table.icon}
           enabled={enabled}
+          fileId={fileId}
         />
       ))}
     </div>
