@@ -1,1 +1,2 @@
-pdfplumber==0.11.4
+# PDF با Unstructured پارس می‌شود
+unstructured[pdf]
