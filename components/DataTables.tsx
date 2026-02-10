@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { AlertCircle, CheckCircle2, MapPin, AlertTriangle, Ruler, Navigation, ChevronDown, ChevronRight } from "lucide-react"
+
+// هر element از Unstructured (برای تایپ بدنه درخواست)
+type ElementItem = Record<string, unknown>
 
 interface DataTableProps {
   endpoint: string
@@ -11,6 +14,9 @@ interface DataTableProps {
   icon: React.ReactNode
   enabled: boolean
   fileId?: string | null
+  /** وقتی از /api/elements گرفته شده؛ پارس فقط برای همین بخش و فقط وقتی کارت در viewport است */
+  elements?: ElementItem[] | null
+  elementsLoading?: boolean
 }
 
 function TableSkeleton() {
@@ -45,56 +51,76 @@ function ExpandableRow({ title, count, children }: { title: string; count?: numb
   )
 }
 
-function DataTable({ endpoint, title, description, icon, enabled, fileId }: DataTableProps) {
+function DataTable({ endpoint, title, description, icon, enabled, fileId, elements, elementsLoading }: DataTableProps) {
   const [data, setData] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const hasFetchedForView = useRef(false)
 
+  // فقط وقتی این کارت در viewport است با elements همان بخش را پارس می‌کنیم (یک بار Unstructured، دونه‌دونه پارس)
   useEffect(() => {
-    if (!enabled) {
-      setData(null)
-      setError(null)
+    if (!enabled || !elements || elements.length === 0 || elementsLoading) {
+      if (!enabled) {
+        setData(null)
+        setError(null)
+        hasFetchedForView.current = false
+      }
       return
     }
 
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
+    const el = cardRef.current
+    if (!el) return
 
-      try {
-        // Get file data from localStorage
-        const fileData = typeof window !== 'undefined' ? localStorage.getItem('aip_fileData') : null
-        
-        if (!fileData) {
-          setError('No PDF uploaded. Please upload a PDF first.')
-          setLoading(false)
-          return
-        }
-        
-        // Send file data to parse endpoint
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ fileData })
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (!entry.isIntersecting || hasFetchedForView.current) return
+        hasFetchedForView.current = true
+        setLoading(true)
+        setError(null)
+        fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ elements }),
         })
-        const result = await response.json()
+          .then((r) => r.json())
+          .then((result) => {
+            if (result.success) setData(result.data)
+            else setError(result.error || "Failed to parse data")
+          })
+          .catch(() => setError("Failed to fetch data"))
+          .finally(() => setLoading(false))
+      },
+      { rootMargin: "80px", threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [enabled, endpoint, elements, elementsLoading])
 
-        if (result.success) {
-          setData(result.data)
-        } else {
-          setError(result.error || 'Failed to parse data')
-        }
-      } catch {
-        setError('Failed to fetch data')
-      } finally {
-        setLoading(false)
-      }
+  // اگر elements نداشتیم (fallback قدیمی) با fileData همه را یک‌جا می‌خوانیم
+  useEffect(() => {
+    if (!enabled || (elements !== undefined && elements !== null)) return
+    const fileData = typeof window !== "undefined" ? localStorage.getItem("aip_fileData") : null
+    if (!fileData) {
+      setError("No PDF uploaded. Please upload a PDF first.")
+      return
     }
-
-    fetchData()
-  }, [endpoint, enabled, fileId])
+    setLoading(true)
+    setError(null)
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileData }),
+    })
+      .then((r) => r.json())
+      .then((result) => {
+        if (result.success) setData(result.data)
+        else setError(result.error || "Failed to parse data")
+      })
+      .catch(() => setError("Failed to fetch data"))
+      .finally(() => setLoading(false))
+  }, [enabled, endpoint, elements])
 
   const renderContent = () => {
     if (!enabled) {
@@ -119,6 +145,13 @@ function DataTable({ endpoint, title, description, icon, enabled, fileId }: Data
       )
     }
 
+    if (showPlaceholder) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <p className="text-sm">Scroll into view to parse this section</p>
+        </div>
+      )
+    }
     if (!data) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -147,7 +180,9 @@ function DataTable({ endpoint, title, description, icon, enabled, fileId }: Data
     return <pre className="text-xs overflow-auto p-4 bg-zinc-900 rounded">{JSON.stringify(data, null, 2)}</pre>
   }
 
+  const showPlaceholder = enabled && elements && elements.length > 0 && !elementsLoading && !loading && !error && data === null
   return (
+    <div ref={cardRef}>
     <Card className="bg-zinc-950 border-zinc-800">
       <CardHeader>
         <div className="flex items-center gap-3">
@@ -167,6 +202,7 @@ function DataTable({ endpoint, title, description, icon, enabled, fileId }: Data
         {renderContent()}
       </CardContent>
     </Card>
+    </div>
   )
 }
 
@@ -361,38 +397,64 @@ function AD213Table({ data }: { data: Array<{ "RWY Designator"?: string; RWY_Des
 }
 
 export function DataTables({ enabled, fileId }: { enabled: boolean; fileId?: string | null }) {
-  const tables = [
-    {
-      endpoint: "/api/parse/ad2_1",
-      title: "AD 2.1 - Location Indicator",
-      description: "Aerodrome location indicator and name",
-      icon: <MapPin className="h-5 w-5" />
-    },
-    {
-      endpoint: "/api/parse/ad2_2",
-      title: "AD 2.2 - Geographical Data",
-      description: "Aerodrome geographical and administrative data",
-      icon: <MapPin className="h-5 w-5" />
-    },
-    {
-      endpoint: "/api/parse/ad2_10",
-      title: "AD 2.10 - Obstacles",
-      description: "Click each runway to see obstacles",
-      icon: <AlertTriangle className="h-5 w-5" />
-    },
-    {
-      endpoint: "/api/parse/ad2_12",
-      title: "AD 2.12 - Runway Characteristics",
-      description: "Click each runway to see details",
-      icon: <Ruler className="h-5 w-5" />
-    },
-    {
-      endpoint: "/api/parse/ad2_13",
-      title: "AD 2.13 - Declared Distances",
-      description: "Click each runway to see distances",
-      icon: <Navigation className="h-5 w-5" />
+  const [elements, setElements] = useState<ElementItem[] | null>(null)
+  const [elementsLoading, setElementsLoading] = useState(false)
+  const [elementsError, setElementsError] = useState<string | null>(null)
+
+  // یک بار به Unstructured می‌زنیم؛ بعد دونه‌دونه فقط وقتی viewport روی هر بخش است همان را پارس می‌کنیم
+  useEffect(() => {
+    if (!enabled) {
+      setElements(null)
+      setElementsError(null)
+      return
     }
+    const fileData = typeof window !== "undefined" ? localStorage.getItem("aip_fileData") : null
+    if (!fileData) {
+      setElementsError("No PDF in storage.")
+      return
+    }
+    setElementsLoading(true)
+    setElementsError(null)
+    fetch("/api/elements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileData }),
+    })
+      .then((r) => r.json())
+      .then((result) => {
+        if (result.success && Array.isArray(result.elements)) setElements(result.elements)
+        else setElementsError(result.error || "Failed to load elements")
+      })
+      .catch(() => setElementsError("Failed to load elements"))
+      .finally(() => setElementsLoading(false))
+  }, [enabled, fileId])
+
+  const tables = [
+    { endpoint: "/api/parse/ad2_1", title: "AD 2.1 - Location Indicator", description: "Aerodrome location indicator and name", icon: <MapPin className="h-5 w-5" /> },
+    { endpoint: "/api/parse/ad2_2", title: "AD 2.2 - Geographical Data", description: "Aerodrome geographical and administrative data", icon: <MapPin className="h-5 w-5" /> },
+    { endpoint: "/api/parse/ad2_10", title: "AD 2.10 - Obstacles", description: "Click each runway to see obstacles", icon: <AlertTriangle className="h-5 w-5" /> },
+    { endpoint: "/api/parse/ad2_12", title: "AD 2.12 - Runway Characteristics", description: "Click each runway to see details", icon: <Ruler className="h-5 w-5" /> },
+    { endpoint: "/api/parse/ad2_13", title: "AD 2.13 - Declared Distances", description: "Click each runway to see distances", icon: <Navigation className="h-5 w-5" /> },
   ]
+
+  if (enabled && (elementsLoading || (elements === null && !elementsError))) {
+    return (
+      <div className="grid gap-6">
+        <Card className="bg-zinc-950 border-zinc-800 p-8">
+          <p className="text-muted-foreground">Loading PDF elements (one Unstructured call)…</p>
+          <TableSkeleton />
+        </Card>
+      </div>
+    )
+  }
+  if (enabled && elementsError) {
+    return (
+      <div className="text-red-400 flex items-center gap-2">
+        <AlertCircle className="h-5 w-5" />
+        <p>{elementsError}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6">
@@ -405,6 +467,8 @@ export function DataTables({ enabled, fileId }: { enabled: boolean; fileId?: str
           icon={table.icon}
           enabled={enabled}
           fileId={fileId}
+          elements={elements ?? undefined}
+          elementsLoading={elementsLoading}
         />
       ))}
     </div>

@@ -41,20 +41,23 @@ def _pdf_to_elements_via_api(
         + pdf_bytes + b"\r\n--" + b + b"--\r\n"
     )
 
-    req = urllib.request.Request(
-        api_url,
-        data=body,
-        method="POST",
-        headers={
-            "Accept": "application/json",
-            "unstructured-api-key": api_key,
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
-    )
-
+    max_attempts = 4
+    backoff_sec = [0.5, 1.0, 2.0]  # بعد از تلاش 0، 1، 2
     last_err = None
-    for attempt in range(2):
+    data = None
+
+    for attempt in range(max_attempts):
         try:
+            req = urllib.request.Request(
+                api_url,
+                data=body,
+                method="POST",
+                headers={
+                    "Accept": "application/json",
+                    "unstructured-api-key": api_key,
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                },
+            )
             opener = urllib.request.build_opener()
             with opener.open(req, timeout=300) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -64,14 +67,16 @@ def _pdf_to_elements_via_api(
             err_body = e.read().decode("utf-8") if e.fp else str(e)
             raise RuntimeError(f"Unstructured API error ({e.code}): {err_body}")
         except OSError as e:
-            if getattr(e, "errno", None) == 16 and attempt == 0:
-                time.sleep(0.5)
+            is_ebusy = getattr(e, "errno", None) == 16
+            if is_ebusy and attempt < max_attempts - 1:
+                time.sleep(backoff_sec[min(attempt, len(backoff_sec) - 1)])
                 last_err = e
                 continue
             raise RuntimeError(f"Unstructured API request failed: {e}") from e
         except Exception as e:
             raise RuntimeError(f"Unstructured API request failed: {e}") from e
-    if last_err is not None:
+
+    if data is None:
         raise RuntimeError(f"Unstructured API request failed: {last_err}") from last_err
 
     # پاسخ API می‌تواند لیست elements باشد یا داخل کلیدی مثل "elements"
