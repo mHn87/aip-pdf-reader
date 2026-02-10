@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, List, Dict
@@ -50,14 +52,27 @@ def _pdf_to_elements_via_api(
         },
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8") if e.fp else str(e)
-        raise RuntimeError(f"Unstructured API error ({e.code}): {err_body}")
-    except Exception as e:
-        raise RuntimeError(f"Unstructured API request failed: {e}") from e
+    last_err = None
+    for attempt in range(2):
+        try:
+            opener = urllib.request.build_opener()
+            with opener.open(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            last_err = None
+            break
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8") if e.fp else str(e)
+            raise RuntimeError(f"Unstructured API error ({e.code}): {err_body}")
+        except OSError as e:
+            if getattr(e, "errno", None) == 16 and attempt == 0:
+                time.sleep(0.5)
+                last_err = e
+                continue
+            raise RuntimeError(f"Unstructured API request failed: {e}") from e
+        except Exception as e:
+            raise RuntimeError(f"Unstructured API request failed: {e}") from e
+    if last_err is not None:
+        raise RuntimeError(f"Unstructured API request failed: {last_err}") from last_err
 
     # پاسخ API می‌تواند لیست elements باشد یا داخل کلیدی مثل "elements"
     raw_elements = data if isinstance(data, list) else data.get("elements", data)
