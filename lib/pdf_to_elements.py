@@ -22,7 +22,8 @@ def pdf_path_to_elements(
         from unstructured.partition.pdf import partition_pdf
     except ImportError:
         raise RuntimeError(
-            'unstructured نصب نیست. نصب: pip install "unstructured[pdf]"'
+            "PDF parsing is not available on this deployment. "
+            "Install locally: pip install -r requirements-full.txt — or use a self-hosted backend."
         )
     path = Path(pdf_path).resolve()
     if not path.exists():
