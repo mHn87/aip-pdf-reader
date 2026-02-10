@@ -46,7 +46,6 @@ git push -u origin main
    - Go to [vercel.com](https://vercel.com)
    - Import your GitHub repository
    - Vercel will automatically detect Next.js and Python functions
-   - **For PDF parsing on Vercel:** In Project Settings → Environment Variables, add `UNSTRUCTURED_API_KEY` with your [Unstructured](https://platform.unstructured.io) API key.
    - Deploy!
 
 ## Project Structure

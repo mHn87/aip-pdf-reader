@@ -1,3 +1,0 @@
-# For local / self-hosted: full PDF parsing with Unstructured
-# pip install -r requirements-full.txt
-unstructured[pdf]==0.18.31
