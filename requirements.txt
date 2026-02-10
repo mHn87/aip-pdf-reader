@@ -1,2 +1,2 @@
-# PDF با Unstructured پارس می‌شود
-unstructured[pdf]
+# PDF با Unstructured پارس می‌شود (نسخه ثابت برای بیلد پایدار)
+unstructured[pdf]==0.18.31
