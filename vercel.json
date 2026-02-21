@@ -1,7 +1,10 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "pip install -r requirements.txt",
+  "installCommand": "npm install && pip install -r requirements.txt",
   "functions": {
+    "api/**/*.ts": {
+      "runtime": "vercel-node@18.x"
+    },
     "api/**/*.py": {
       "runtime": "vercel-python@3.11"
     }
