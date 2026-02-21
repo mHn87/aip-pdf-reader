@@ -1,161 +1,77 @@
-#!/usr/bin/env python3
-"""
-تبدیل PDF به لیست elements:
-- اگر UNSTRUCTURED_API_KEY تنظیم باشد از Unstructured API استفاده می‌شود (مناسب Vercel).
-- وگرنه از کتابخانهٔ محلی unstructured (نصب: pip install -r requirements-full.txt).
-"""
-from __future__ import annotations
+import requests, time, zipfile, os, json, io
 
-import json
-import os
-import time
-import urllib.error
-import urllib.request
-from pathlib import Path
-from typing import Any, List, Dict
+TOKEN = "eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0NjkwMDgwNiIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3MTE4NTg2NywiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiNmI0OWI0OWQtMWEzZi00MmQ5LWJlY2MtMTViMGJhNzA0MWY3IiwiZW1haWwiOiIiLCJleHAiOjE3Nzg5NjE4Njd9.1xihdazAQG9trnRIub0vZ7h41yy-PvcIk_swXSFM8sI5lIA1WexSTpvtk0R5DXI-ujmcbeX8MYRG9pGV7AvVRw"
+CREATE_URL = "https://mineru.net/api/v4/extract/task"
+HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}"}
 
-# Legacy Partition Endpoint (پیش‌فرض)
-DEFAULT_UNSTRUCTURED_API_URL = "https://api.unstructuredapp.io/general/v0/general"
-# Platform: https://platform.unstructuredapp.io/api/v1
+def create_task(pdf_path):
+    payload = {
+        "url": "https://ais.airport.ir/documents/452631/166560070/OIZB.pdf",
+        "model_version": "vlm",
+        "output_format": "json",
+        "extract_config": {
+            "enable_ocr": False,
+            "enable_image": False,
+            "enable_formula": False
+        }
+    }
+    res = requests.post(CREATE_URL, headers=HEADERS, json=payload)
+    data = res.json()
+    if "data" not in data or "task_id" not in data["data"]:
+        raise Exception(f"API did not return task_id: {data}")
+    return data["data"]["task_id"]
 
 
-def _pdf_to_elements_via_api(
-    pdf_path: str,
-    api_key: str,
-    api_url: str,
-    strategy: str = "hi_res",
-) -> List[Dict[str, Any]]:
-    """ارسال PDF به Unstructured API و دریافت elements."""
-    path = Path(pdf_path).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"فایل یافت نشد: {pdf_path}")
+def wait_for_result(task_id, timeout=300):
+    url = f"https://mineru.net/api/v4/extract/task/{task_id}"
+    start = time.time()
+    while True:
+        r = requests.get(url, headers=HEADERS)
+        data = r.json().get("data", {})
+        state = data.get("state")
+        if state in ("done", "success"):
+            return data
+        if state in ("failed", "error"):
+            raise Exception(data.get("err_msg") or "Task failed")
+        if time.time() - start > timeout:
+            raise TimeoutError("Timeout waiting for task")
+        time.sleep(5)
 
-    with open(path, "rb") as f:
-        pdf_bytes = f.read()
+def download_and_extract_zip(zip_url):
+    r = requests.get(zip_url)
+    with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+        extracted = {name: zf.read(name).decode("utf-8") for name in zf.namelist() if name.endswith("_content_list.json")}
+        return extracted
 
-    boundary = "--------PythonPDFBoundary"
-    b = boundary.encode("utf-8")
-    body = (
-        b"--" + b + b"\r\nContent-Disposition: form-data; name=\"strategy\"\r\n\r\n" + strategy.encode("utf-8") + b"\r\n"
-        + b"--" + b + b"\r\nContent-Disposition: form-data; name=\"files\"; filename=\"" + path.name.encode("utf-8") + b"\"\r\nContent-Type: application/pdf\r\n\r\n"
-        + pdf_bytes + b"\r\n--" + b + b"--\r\n"
-    )
+def extract_ad_tables(extracted_jsons):
+    ad_2_10, ad_2_12 = [], []
 
-    max_attempts = 4
-    backoff_sec = [0.5, 1.0, 2.0]  # بعد از تلاش 0، 1، 2
-    last_err = None
-    data = None
-
-    for attempt in range(max_attempts):
-        try:
-            req = urllib.request.Request(
-                api_url,
-                data=body,
-                method="POST",
-                headers={
-                    "Accept": "application/json",
-                    "unstructured-api-key": api_key,
-                    "Content-Type": f"multipart/form-data; boundary={boundary}",
-                },
-            )
-            opener = urllib.request.build_opener()
-            with opener.open(req, timeout=300) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            last_err = None
-            break
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8") if e.fp else str(e)
-            raise RuntimeError(f"Unstructured API error ({e.code}): {err_body}")
-        except OSError as e:
-            is_ebusy = getattr(e, "errno", None) == 16
-            if is_ebusy and attempt < max_attempts - 1:
-                time.sleep(backoff_sec[min(attempt, len(backoff_sec) - 1)])
-                last_err = e
+    for content_str in extracted_jsons.values():
+        data = json.loads(content_str)
+        items = data if isinstance(data, list) else data.get("items", [])
+        for idx, item in enumerate(items):
+            if item.get("type") != "table":
                 continue
-            raise RuntimeError(f"Unstructured API request failed: {e}") from e
-        except Exception as e:
-            raise RuntimeError(f"Unstructured API request failed: {e}") from e
+            captions = item.get("table_caption", [])
+            caption_text = " ".join(captions).upper() if captions else ""
+            prev_text = ""
+            if idx > 0 and items[idx-1].get("type") == "text":
+                prev_text = items[idx-1].get("text", "").upper()
+            combined = prev_text + " " + caption_text
+            html = item.get("table_body", "")
+            if "AD 2.10" in combined:
+                ad_2_10.append(html)
+            elif "AD 2.12" in combined:
+                ad_2_12.append(html)
 
-    if data is None:
-        raise RuntimeError(f"Unstructured API request failed: {last_err}") from last_err
+    return {"AD_2_10": ad_2_10, "AD_2_12": ad_2_12}
 
-    # پاسخ API می‌تواند لیست elements باشد یا داخل کلیدی مثل "elements"
-    raw_elements = data if isinstance(data, list) else data.get("elements", data)
-    if not isinstance(raw_elements, list):
-        raise RuntimeError("Unstructured API did not return a list of elements")
-
-    out_list = []
-    for i, el in enumerate(raw_elements):
-        if isinstance(el, dict):
-            d = el
-        else:
-            d = getattr(el, "__dict__", {}) or {}
-        meta = d.get("metadata") or {}
-        if not isinstance(meta, dict):
-            meta = dict(meta) if hasattr(meta, "items") else {}
-        out_list.append({
-            "element_id": d.get("element_id") or d.get("id") or f"elem-{i}",
-            "type": d.get("type"),
-            "text": d.get("text", ""),
-            "metadata": meta,
-        })
-    return out_list
-
-
-def pdf_path_to_elements(
-    pdf_path: str,
-    strategy: str = "hi_res",
-    infer_tables: bool = True,
-) -> List[Dict[str, Any]]:
-    """
-    استخراج elements از PDF.
-    اگر UNSTRUCTURED_API_KEY تنظیم باشد از API استفاده می‌شود؛ وگرنه از کتابخانهٔ محلی.
-    خروجی: لیست دیکشنری با کلیدهای type, text, metadata (شامل text_as_html برای Table).
-    """
-    api_key = (os.environ.get("UNSTRUCTURED_API_KEY") or "").strip()
-    if api_key:
-        api_url = (os.environ.get("UNSTRUCTURED_API_URL") or DEFAULT_UNSTRUCTURED_API_URL).strip()
-        return _pdf_to_elements_via_api(pdf_path, api_key=api_key, api_url=api_url, strategy=strategy)
-
-    try:
-        from unstructured.partition.pdf import partition_pdf
-    except ImportError:
-        raise RuntimeError(
-            "PDF parsing is not available: set UNSTRUCTURED_API_KEY in Vercel, "
-            "or install locally: pip install -r requirements-full.txt"
-        )
-
-    path = Path(pdf_path).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"فایل یافت نشد: {pdf_path}")
-    elements = partition_pdf(
-        filename=str(path),
-        strategy=strategy,
-        infer_table_structure=infer_tables,
-    )
-    out_list = []
-    for i, el in enumerate(elements):
-        d = {}
-        if hasattr(el, "to_dict"):
-            try:
-                d = el.to_dict()
-            except Exception:
-                pass
-        if not d:
-            d = {
-                "type": getattr(el, "type", None) or type(el).__name__,
-                "text": getattr(el, "text", ""),
-                "metadata": getattr(el, "metadata", {}) or {},
-            }
-        meta = d.get("metadata") or {}
-        if isinstance(meta, dict):
-            meta = dict(meta)
-        else:
-            meta = {}
-        out_list.append({
-            "element_id": d.get("element_id") or d.get("id") or f"elem-{i}",
-            "type": d.get("type"),
-            "text": d.get("text", ""),
-            "metadata": meta,
-        })
-    return out_list
+def pdf_path_to_elements(pdf_path):
+    task_id = create_task(pdf_path)
+    result = wait_for_result(task_id)
+    zip_url = result.get("full_zip_url")
+    if not zip_url:
+        raise Exception("No ZIP URL found")
+    extracted_jsons = download_and_extract_zip(zip_url)
+    tables = extract_ad_tables(extracted_jsons)
+    return tables

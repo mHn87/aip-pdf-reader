@@ -1,0 +1,6 @@
+.table-no-border table,
+.table-no-border th,
+.table-no-border td {
+    border: none !important;
+    border-collapse: collapse;
+}
