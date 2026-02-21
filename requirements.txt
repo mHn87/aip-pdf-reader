@@ -1,3 +1,3 @@
-# Vercel: use requirements-vercel.txt to avoid 4GB+ bundle (set Install Command in project settings).
-# Local: pip install -r requirements-full.txt for PDF parsing.
-# Default (this file) is minimal so Vercel build succeeds.
+pymupdf
+pymupdf4llm
+pandas
