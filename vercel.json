@@ -1,6 +1,8 @@
 {
+  "buildCommand": "npm run build",
+  "installCommand": "npm install && pip install -r requirements.txt",
   "functions": {
     "lib/pdf_to_elements.py": { "runtime": "vercel-python@3.11" },
     "api/**/*.ts": { "runtime": "vercel-node@18.x" }
-  }
+}
 }
