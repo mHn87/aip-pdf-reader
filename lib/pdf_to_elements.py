@@ -6,7 +6,7 @@ HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}
 
 def create_task(pdf_path):
     payload = {
-        "url": "https://ais.airport.ir/documents/452631/166560070/OIZB.pdf",
+        "url": pdf_path,
         "model_version": "vlm",
         "output_format": "json",
         "extract_config": {

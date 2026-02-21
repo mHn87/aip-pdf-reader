@@ -20,21 +20,15 @@ function TableSkeleton() {
   )
 }
 
-export function DataTables({ enabled }: { enabled: boolean }) {
+export function DataTables({ url }: { url: string }) {
   const [tables, setTables] = useState<TablesResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   useEffect(() => {
-    if (!enabled) {
+    if (!url) {
       setTables(null)
       setError(null)
-      return
-    }
-    
-    const fileData = typeof window !== "undefined" ? localStorage.getItem("aip_fileData") : null
-    if (!fileData) {
-      setError("No PDF in storage.")
       return
     }
     
@@ -43,7 +37,9 @@ export function DataTables({ enabled }: { enabled: boolean }) {
     fetch("/api/elements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileData }),
+      body: JSON.stringify({
+        pdfUrl: url,
+      }),
     })
       .then((r) => r.json())
       .then((result) => {
@@ -55,9 +51,9 @@ export function DataTables({ enabled }: { enabled: boolean }) {
       })
       .catch(() => setError("Failed to load tables"))
       .finally(() => setLoading(false))
-  }, [enabled])
+  }, [url])
   
-  if (!enabled) {
+  if (!url) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
