@@ -1,6 +1,11 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "pip install -r requirements.txt",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "vercel-python@3.11"
+    }
+  },
   "build": {
     "env": {
       "PYTHON_SETUPTOOLS_ENABLE_FEATURES": "legacy-editable"
