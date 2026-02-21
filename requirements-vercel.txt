@@ -1,2 +1,0 @@
-# Minimal deps for Vercel build (avoids 4GB+ unstructured bundle).
-# PDF parsing will return a clear error; for full parsing use local or another host.

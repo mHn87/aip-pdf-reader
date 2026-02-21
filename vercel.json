@@ -1,4 +1,9 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "build": {
+    "env": {
+      "PYTHON_SETUPTOOLS_ENABLE_FEATURES": "legacy-editable"
+    }
+  }
 }
