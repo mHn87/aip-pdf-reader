@@ -34,12 +34,10 @@ export function DataTables({ url }: { url: string }) {
     
     setLoading(true)
     setError(null)
-    fetch("/api/elements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        pdfUrl: url,
-      }),
+    fetch('/api/pdf-to-elements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdfUrl: url })
     })
       .then((r) => r.json())
       .then((result) => {

@@ -1,4 +1,20 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install && pip install -r requirements.txt --break-system-packages"
+  "installCommand": "npm install && pip install -r requirements.txt",
+  "rewrites": [
+    {
+      "source": "/api/pdf-to-elements",
+      "destination": "/python-api/pdf-to-elements.py"
+    }
+  ],
+  "functions": {
+    "python-api/*.py": {
+      "runtime": "python3.9",
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  },
+  "env": {
+    "PYTHONPATH": "./lib"
+  }
 }
