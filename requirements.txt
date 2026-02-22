@@ -1,6 +1,1 @@
-pymupdf
-pymupdf4llm
-pandas
-fastapi
-uvicorn[standard]
 requests
