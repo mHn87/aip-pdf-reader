@@ -1,13 +1,6 @@
 {
-  "functions": {
-    "python-api/pdf-to-elements.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/pdf-to-elements",
-      "destination": "/python-api/pdf-to-elements.py"
-    }
-  ]
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install"
 }
