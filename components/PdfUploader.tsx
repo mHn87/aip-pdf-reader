@@ -20,11 +20,9 @@ export function PdfUrlInput({ onSuccess }: Props) {
   return (
     <div className="flex gap-3">
       <input
-        placeholder="AIP URL..."
+        placeholder="AIP PDF URL..."
         value={url}
-        style={{
-          color: "black"
-        }}
+        className="min-w-[280px] rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
         onChange={(e) => setUrl(e.target.value)}
       />
       

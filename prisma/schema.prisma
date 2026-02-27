@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Job {
+  id              String    @id
+  count           Int
+  urls            Json      // string[] as JSON
+  status          String    // "pending" | "success" | "error"
+  processedCount  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  durationMs      Int?      // total duration in milliseconds
+  errorMessage    String?   @map("error_message") // if status=error
+
+  aips            Aip[]
+}
+
+model Aip {
+  id        String   @id @default(uuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    String   // "pending" | "success" | "error"
+  name      String   // e.g. OIAD, OIAG
+  runways   Json?    // { "ad 2_1": { parse: string, extract: null } } | null
+  obstacles Json?    // { "ad 2_1": { parse: string, extract: null } } | null
+  createdAt DateTime @default(now())
+  urlIndex  Int      // index in job.urls for ordering
+}
