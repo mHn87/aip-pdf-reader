@@ -14,13 +14,19 @@ export async function GET(request: NextRequest) {
       take: 100,
     })
 
-    const list = aips.map((a) => ({
-      id: a.id,
-      name: a.name,
-      status: a.status,
-      createdAt: a.createdAt.toISOString(),
-      jobId: a.jobId,
-    }))
+    const list = aips.map((a) => {
+      const obstacles = (a.obstacles as Record<string, unknown>) ?? null
+      const runways = (a.runways as Record<string, unknown>) ?? null
+      return {
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        createdAt: a.createdAt.toISOString(),
+        jobId: a.jobId,
+        obstaclesCount: obstacles ? Object.keys(obstacles).length : 0,
+        runwaysCount: runways ? Object.keys(runways).length : 0,
+      }
+    })
 
     return NextResponse.json({ aips: list })
   } catch (e) {

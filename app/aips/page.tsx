@@ -14,6 +14,8 @@ type AipItem = {
   status: string
   createdAt: string
   jobId: string
+  obstaclesCount: number
+  runwaysCount: number
 }
 
 function AipsContent() {
@@ -90,7 +92,9 @@ function AipsContent() {
                     day: "numeric",
                   })}
                 </div>
-                <div className="text-xs text-zinc-500 mt-0.5">{aip.status}</div>
+                <div className="text-xs text-zinc-500 mt-0.5">
+                  {aip.obstaclesCount} obstacles · {aip.runwaysCount} runways
+                </div>
               </>
             )
             const className = cn(

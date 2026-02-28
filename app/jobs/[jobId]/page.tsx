@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState, useRef, useCallback } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react"
+import { ArrowLeft, CheckCircle2, XCircle, Loader2, FileText, Database, Sparkles } from "lucide-react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { cn } from "@/components/utils"
 
@@ -19,47 +19,71 @@ type JobState = {
   urls: string[]
 }
 
+function nameFromUrl(url: string): string {
+  try {
+    const path = new URL(url).pathname
+    const m = path.match(/\/([A-Z0-9]{4})\.pdf/i) || path.match(/\/([A-Z0-9]+)/i)
+    return m ? m[1].toUpperCase() : "PDF"
+  } catch {
+    return "PDF"
+  }
+}
+
+type StepPhase = "idle" | "mineru" | "saving"
+
 export default function JobDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const jobId = params.jobId as string
   const [job, setJob] = useState<JobState | null>(null)
   const [loading, setLoading] = useState(true)
+  const [stepPhase, setStepPhase] = useState<StepPhase>("idle")
   const steppingRef = useRef(false)
 
-  const fetchJob = () =>
-    fetch(`/api/jobs/${jobId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.id) setJob(data)
-      })
+  const fetchJob = useCallback(
+    () =>
+      fetch(`/api/jobs/${jobId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.id) setJob(data)
+        }),
+    [jobId]
+  )
 
   useEffect(() => {
     fetchJob().finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+  }, [fetchJob])
 
   useEffect(() => {
-    if (!job || job.status !== "pending") return
+    if (!job || job.status !== "pending") {
+      setStepPhase("idle")
+      return
+    }
     if (steppingRef.current) return
     if (job.processedCount >= job.count) return
 
     steppingRef.current = true
+    setStepPhase("mineru")
     fetch(`/api/jobs/${jobId}/step`, { method: "POST" })
       .then((r) => r.json())
-      .then(() => fetchJob())
+      .then(() => {
+        setStepPhase("saving")
+        setTimeout(() => {
+          fetchJob().then(() => {
+            setStepPhase("idle")
+          })
+        }, 500)
+      })
+      .catch(() => setStepPhase("idle"))
       .finally(() => {
         steppingRef.current = false
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?.status, job?.processedCount, job?.count, jobId])
+  }, [job?.status, job?.processedCount, job?.count, jobId, fetchJob])
 
   useEffect(() => {
     if (!job || job.status !== "pending") return
     const t = setInterval(fetchJob, 4000)
     return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, job?.status])
+  }, [jobId, job?.status, fetchJob])
 
   if (loading || !job) {
     return (
@@ -74,6 +98,15 @@ export default function JobDetailPage() {
 
   const isPending = job.status === "pending"
   const progress = `${job.processedCount}/${job.count}`
+  const currentIndex = job.processedCount
+  const currentFileUrl = job.urls[currentIndex]
+  const currentFileName = currentFileUrl ? nameFromUrl(currentFileUrl) : "—"
+  const currentStepLabel =
+    stepPhase === "mineru"
+      ? "Extracting with MinerU..."
+      : stepPhase === "saving"
+        ? "Saving to database..."
+        : null
 
   return (
     <div className="container max-w-screen-xl mx-auto px-4 py-6 md:py-8">
@@ -109,6 +142,36 @@ export default function JobDetailPage() {
       {job.status === "error" && job.errorMessage && (
         <p className="text-red-400 text-sm mb-4">{job.errorMessage}</p>
       )}
+
+      {isPending && currentIndex < job.count && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 mb-6 space-y-3">
+          <p className="text-sm font-medium text-white flex items-center gap-2">
+            <FileText className="h-4 w-4 text-amber-400" />
+            Processing file {currentIndex + 1} of {job.count}: <span className="font-mono text-amber-400">{currentFileName}</span>
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 text-sm text-zinc-400">
+            <li className={cn(stepPhase !== "idle" && "text-zinc-200")}>
+              Processing this file ({currentFileName})
+            </li>
+            <li className={cn(stepPhase === "mineru" && "text-amber-400 flex items-center gap-2")}>
+              {stepPhase === "mineru" && <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />}
+              Extracting data with MinerU
+            </li>
+            <li className={cn(stepPhase === "saving" && "text-amber-400 flex items-center gap-2")}>
+              {stepPhase === "saving" && <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />}
+              Saving to database
+            </li>
+          </ol>
+          {currentStepLabel && (
+            <p className="text-xs text-zinc-500 pt-1">
+              {stepPhase === "mineru" && <Sparkles className="h-3 w-3 inline mr-1" />}
+              {stepPhase === "saving" && <Database className="h-3 w-3 inline mr-1" />}
+              {currentStepLabel}
+            </p>
+          )}
+        </div>
+      )}
+
       {job.status === "success" && (
         <Link
           href={`/aips?jobId=${job.id}`}
