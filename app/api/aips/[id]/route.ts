@@ -7,8 +7,16 @@ export async function GET(
 ) {
   const { id } = await params
   try {
-    const aip = await prisma.aip.findUnique({ where: { id } })
+    const aip = await prisma.aip.findUnique({
+      where: { id },
+      include: { job: true },
+    })
     if (!aip) return NextResponse.json({ error: "AIP not found" }, { status: 404 })
+    const urls = (aip.job?.urls as string[]) || []
+    const sourceUrl =
+      typeof aip.urlIndex === "number" && aip.urlIndex >= 0 && aip.urlIndex < urls.length
+        ? urls[aip.urlIndex]
+        : undefined
     return NextResponse.json({
       id: aip.id,
       name: aip.name,
@@ -17,6 +25,7 @@ export async function GET(
       obstacles: aip.obstacles,
       createdAt: aip.createdAt.toISOString(),
       jobId: aip.jobId,
+      sourceUrl,
     })
   } catch (e) {
     console.error("aip get:", e)

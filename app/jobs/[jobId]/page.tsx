@@ -117,6 +117,13 @@ export default function JobDetailPage() {
         ? "Saving to database..."
         : null
 
+  const stepStates: ("done" | "active" | "upcoming")[] =
+    stepPhase === "mineru"
+      ? ["done", "active", "upcoming"]
+      : stepPhase === "saving"
+        ? ["done", "done", "active"]
+        : ["active", "upcoming", "upcoming"]
+
   return (
     <div className="container max-w-screen-xl mx-auto px-4 py-6 md:py-8">
       <Link href="/jobs" className="text-zinc-400 hover:text-white mb-6 inline-flex items-center gap-1">
@@ -159,25 +166,59 @@ export default function JobDetailPage() {
             Processing file {currentIndex + 1} of {job.count}: <span className="font-mono text-white">{currentFileName}</span>
           </p>
           <ol className="space-y-1.5 text-sm">
-            <li className={cn(
-              "flex items-center gap-2",
-              stepPhase !== "idle" ? "text-zinc-500 opacity-70" : "text-zinc-300"
-            )}>
-              {stepPhase !== "idle" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <span className="w-4 shrink-0 text-zinc-500">1.</span>}
+            <li
+              className={cn(
+                "flex items-center gap-2",
+                stepStates[0] === "done"
+                  ? "text-zinc-500 opacity-70"
+                  : stepStates[0] === "active"
+                    ? "text-zinc-200"
+                    : "text-zinc-300"
+              )}
+            >
+              {stepStates[0] === "done" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+              ) : (
+                <span className="w-4 shrink-0 text-zinc-500">1.</span>
+              )}
               Processing this file ({currentFileName})
             </li>
-            <li className={cn(
-              "flex items-center gap-2",
-              stepPhase === "saving" ? "text-zinc-500 opacity-70" : stepPhase === "mineru" ? "text-zinc-300" : "text-zinc-500 opacity-70"
-            )}>
-              {stepPhase === "saving" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : stepPhase === "mineru" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" /> : <span className="w-4 shrink-0 text-zinc-500">2.</span>}
+            <li
+              className={cn(
+                "flex items-center gap-2",
+                stepStates[1] === "done"
+                  ? "text-zinc-500 opacity-70"
+                  : stepStates[1] === "active"
+                    ? "text-zinc-200"
+                    : "text-zinc-300"
+              )}
+            >
+              {stepStates[1] === "done" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+              ) : stepStates[1] === "active" ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" />
+              ) : (
+                <span className="w-4 shrink-0 text-zinc-500">2.</span>
+              )}
               Extracting data with MinerU
             </li>
-            <li className={cn(
-              "flex items-center gap-2",
-              stepPhase === "saving" ? "text-zinc-300" : "text-zinc-500 opacity-70"
-            )}>
-              {stepPhase === "saving" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" /> : <span className="w-4 shrink-0 text-zinc-500">3.</span>}
+            <li
+              className={cn(
+                "flex items-center gap-2",
+                stepStates[2] === "done"
+                  ? "text-zinc-500 opacity-70"
+                  : stepStates[2] === "active"
+                    ? "text-zinc-200"
+                    : "text-zinc-300"
+              )}
+            >
+              {stepStates[2] === "active" ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" />
+              ) : stepStates[2] === "done" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
+              ) : (
+                <span className="w-4 shrink-0 text-zinc-500">3.</span>
+              )}
               Saving to database
             </li>
           </ol>

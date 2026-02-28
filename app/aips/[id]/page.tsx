@@ -16,6 +16,7 @@ type AipData = {
   id: string
   name: string
   status: string
+  sourceUrl?: string
   runways: Record<string, { parse: string; extract: unknown }> | null
   obstacles: Record<string, { parse: string; extract: unknown }> | null
 }
@@ -55,7 +56,19 @@ export default function AipViewPage() {
         <ArrowLeft className="h-4 w-4" /> Parsed AIPs
       </Link>
       <h1 className="text-xl md:text-2xl font-bold text-white mb-2">{aip.name}</h1>
-      <p className="text-zinc-500 text-sm mb-8">Read-only view (from database)</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-8">
+        <p className="text-zinc-500 text-sm">Read-only view (from database)</p>
+        {aip.sourceUrl && (
+          <a
+            href={aip.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 underline-offset-2 hover:underline"
+          >
+            Open original PDF
+          </a>
+        )}
+      </div>
 
       <div className="grid gap-6">
         {obstaclesEntries.length > 0 && (
