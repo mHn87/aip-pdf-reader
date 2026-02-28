@@ -8,17 +8,19 @@ const HEADERS = {
   Authorization: `Bearer ${TOKEN}`,
 }
 
+const ZIP_TIMEOUT_MS = 360000 // 6 min for slow CDNs
 const ZIP_FETCH_OPTIONS = {
   headers: {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     Accept: "application/zip,*/*",
   },
-  signal: AbortSignal.timeout(120000),
+  signal: AbortSignal.timeout(ZIP_TIMEOUT_MS),
 } as const
 
 export type MinerUTables = { AD_2_10: string[]; AD_2_12: string[] }
 
+const CREATE_TASK_TIMEOUT_MS = 90000 // 1.5 min
 async function createTask(pdfPath: string) {
   const res = await fetch(CREATE_URL, {
     method: "POST",
@@ -29,17 +31,23 @@ async function createTask(pdfPath: string) {
       output_format: "json",
       extract_config: { enable_ocr: false, enable_image: false, enable_formula: false },
     }),
+    signal: AbortSignal.timeout(CREATE_TASK_TIMEOUT_MS),
   })
   const data = await res.json()
   if (!data.data?.task_id) throw new Error(`MinerU: no task_id: ${JSON.stringify(data)}`)
   return data.data.task_id as string
 }
 
-async function waitForResult(taskId: string, timeout = 300000) {
+const WAIT_FOR_RESULT_TIMEOUT_MS = 600000 // 10 min total for MinerU processing
+const POLL_FETCH_TIMEOUT_MS = 30000 // 30s per status check
+async function waitForResult(taskId: string, timeout = WAIT_FOR_RESULT_TIMEOUT_MS) {
   const url = `https://mineru.net/api/v4/extract/task/${taskId}`
   const start = Date.now()
   while (true) {
-    const r = await fetch(url, { headers: HEADERS })
+    const r = await fetch(url, {
+      headers: HEADERS,
+      signal: AbortSignal.timeout(POLL_FETCH_TIMEOUT_MS),
+    })
     const data = await r.json()
     const result = data.data || {}
     const state = result.state

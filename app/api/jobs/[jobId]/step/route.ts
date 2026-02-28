@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { parsePdfUrl, aipNameFromUrl } from "@/lib/mineru"
 
+// Allow up to 5 min per PDF step (MinerU + ZIP + DB) on Vercel Pro
+export const maxDuration = 300
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }

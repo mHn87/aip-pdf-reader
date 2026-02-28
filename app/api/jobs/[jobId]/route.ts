@@ -12,6 +12,19 @@ export async function GET(
       include: { aips: true },
     })
     if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 })
+    const aipsWithCounts = job.aips.map((a) => {
+      const obstacles = (a.obstacles as Record<string, unknown>) ?? null
+      const runways = (a.runways as Record<string, unknown>) ?? null
+      return {
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        createdAt: a.createdAt.toISOString(),
+        obstaclesCount: obstacles ? Object.keys(obstacles).length : 0,
+        runwaysCount: runways ? Object.keys(runways).length : 0,
+      }
+    })
+
     return NextResponse.json({
       id: job.id,
       count: job.count,
@@ -22,12 +35,7 @@ export async function GET(
       completedAt: job.completedAt?.toISOString() ?? null,
       durationMs: job.durationMs,
       errorMessage: job.errorMessage,
-      aips: job.aips.map((a) => ({
-        id: a.id,
-        name: a.name,
-        status: a.status,
-        createdAt: a.createdAt.toISOString(),
-      })),
+      aips: aipsWithCounts,
     })
   } catch (e) {
     console.error("job get:", e)

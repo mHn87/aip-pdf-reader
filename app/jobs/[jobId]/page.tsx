@@ -3,9 +3,17 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, XCircle, Loader2, FileText, Database, Sparkles } from "lucide-react"
+import { ArrowLeft, CheckCircle2, XCircle, Loader2, FileText, Database, Sparkles, AlertTriangle, Ruler } from "lucide-react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { cn } from "@/components/utils"
+
+type AipSummary = {
+  id: string
+  name: string
+  status: string
+  obstaclesCount: number
+  runwaysCount: number
+}
 
 type JobState = {
   id: string
@@ -17,6 +25,7 @@ type JobState = {
   durationMs: number | null
   errorMessage: string | null
   urls: string[]
+  aips?: AipSummary[]
 }
 
 function nameFromUrl(url: string): string {
@@ -146,19 +155,29 @@ export default function JobDetailPage() {
       {isPending && currentIndex < job.count && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 mb-6 space-y-3">
           <p className="text-sm font-medium text-white flex items-center gap-2">
-            <FileText className="h-4 w-4 text-amber-400" />
-            Processing file {currentIndex + 1} of {job.count}: <span className="font-mono text-amber-400">{currentFileName}</span>
+            <FileText className="h-4 w-4 text-zinc-400" />
+            Processing file {currentIndex + 1} of {job.count}: <span className="font-mono text-white">{currentFileName}</span>
           </p>
-          <ol className="list-decimal list-inside space-y-1.5 text-sm text-zinc-400">
-            <li className={cn(stepPhase !== "idle" && "text-zinc-200")}>
+          <ol className="space-y-1.5 text-sm">
+            <li className={cn(
+              "flex items-center gap-2",
+              stepPhase !== "idle" ? "text-zinc-500 opacity-70" : "text-zinc-300"
+            )}>
+              {stepPhase !== "idle" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <span className="w-4 shrink-0 text-zinc-500">1.</span>}
               Processing this file ({currentFileName})
             </li>
-            <li className={cn(stepPhase === "mineru" && "text-amber-400 flex items-center gap-2")}>
-              {stepPhase === "mineru" && <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />}
+            <li className={cn(
+              "flex items-center gap-2",
+              stepPhase === "saving" ? "text-zinc-500 opacity-70" : stepPhase === "mineru" ? "text-zinc-300" : "text-zinc-500 opacity-70"
+            )}>
+              {stepPhase === "saving" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : stepPhase === "mineru" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" /> : <span className="w-4 shrink-0 text-zinc-500">2.</span>}
               Extracting data with MinerU
             </li>
-            <li className={cn(stepPhase === "saving" && "text-amber-400 flex items-center gap-2")}>
-              {stepPhase === "saving" && <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />}
+            <li className={cn(
+              "flex items-center gap-2",
+              stepPhase === "saving" ? "text-zinc-300" : "text-zinc-500 opacity-70"
+            )}>
+              {stepPhase === "saving" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" /> : <span className="w-4 shrink-0 text-zinc-500">3.</span>}
               Saving to database
             </li>
           </ol>
@@ -173,12 +192,34 @@ export default function JobDetailPage() {
       )}
 
       {job.status === "success" && (
-        <Link
-          href={`/aips?jobId=${job.id}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-white hover:bg-zinc-700"
-        >
-          View parsed AIPs from this job
-        </Link>
+        <div className="space-y-4">
+          {job.aips && job.aips.length > 0 && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+              <p className="text-sm font-medium text-white mb-3">Parsed AIPs · obstacles & runways</p>
+              <ul className="space-y-2">
+                {job.aips.map((aip) => (
+                  <li key={aip.id} className="flex items-center gap-3 text-sm">
+                    <span className="font-mono text-white w-12">{aip.name}</span>
+                    <span className="text-zinc-400 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {aip.obstaclesCount} obstacles
+                    </span>
+                    <span className="text-zinc-400 flex items-center gap-1.5">
+                      <Ruler className="h-3.5 w-3.5" />
+                      {aip.runwaysCount} runways
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Link
+            href={`/aips?jobId=${job.id}`}
+            className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-white hover:bg-zinc-700"
+          >
+            View parsed AIPs from this job
+          </Link>
+        </div>
       )}
     </div>
   )
